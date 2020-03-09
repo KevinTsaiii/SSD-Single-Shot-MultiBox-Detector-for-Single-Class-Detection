@@ -4,12 +4,14 @@ import torch
 import random
 import xml.etree.ElementTree as ET
 import torchvision.transforms.functional as FT
+from pathlib import Path
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Label map
-voc_labels = ('aeroplane', 'bicycle', 'bird', 'boat', 'bottle', 'bus', 'car', 'cat', 'chair', 'cow', 'diningtable',
-              'dog', 'horse', 'motorbike', 'person', 'pottedplant', 'sheep', 'sofa', 'train', 'tvmonitor')
+'''voc_labels = ('aeroplane', 'bicycle', 'bird', 'boat', 'bottle', 'bus', 'car', 'cat', 'chair', 'cow', 'diningtable',
+              'dog', 'horse', 'motorbike', 'person', 'pottedplant', 'sheep', 'sofa', 'train', 'tvmonitor')'''
+voc_labels = ('phone')
 label_map = {k: v + 1 for v, k in enumerate(voc_labels)}
 label_map['background'] = 0
 rev_label_map = {v: k for k, v in label_map.items()}  # Inverse mapping
@@ -20,36 +22,62 @@ distinct_colors = ['#e6194b', '#3cb44b', '#ffe119', '#0082c8', '#f58231', '#911e
                    '#ffd8b1', '#e6beff', '#808080', '#FFFFFF']
 label_color_map = {k: distinct_colors[i] for i, k in enumerate(label_map.keys())}
 
+def create_training_data_lists(data_path, output_folder):
+    """
+    Create lists of images, the bounding boxes and labels of the objects in these images, and save these to file.
 
-def parse_annotation(annotation_path):
-    tree = ET.parse(annotation_path)
-    root = tree.getroot()
+    data_path: path to the dataset
+    output_folder: path to the output JSON folder
+    """
 
-    boxes = list()
-    labels = list()
-    difficulties = list()
-    for object in root.iter('object'):
+    data_path = Path(data_path)
+    with open(data_path / 'labels.txt', 'r') as f:
+        train_labels = f.read().splitlines()
 
-        difficult = int(object.find('difficult').text == '1')
+    half_box_length = 35 #pixels
+    image_size = {'x': 490, 'y': 326}
 
-        label = object.find('name').text.lower().strip()
-        if label not in label_map:
-            continue
+    # training set
+    train_objects = list()
+    train_images = list()
+    n_objects = 0
 
-        bbox = object.find('bndbox')
-        xmin = int(bbox.find('xmin').text) - 1
-        ymin = int(bbox.find('ymin').text) - 1
-        xmax = int(bbox.find('xmax').text) - 1
-        ymax = int(bbox.find('ymax').text) - 1
+    for label in train_labels:
+        sp = label.split()
+        x_center = int(float(sp[1])*490)
+        y_center = int(float(sp[2])*326)
+        xmin = x_center - half_box_length
+        ymin = y_center - half_box_length
+        xmax = x_center + half_box_length
+        ymax = y_center + half_box_length
 
-        boxes.append([xmin, ymin, xmax, ymax])
-        labels.append(label_map[label])
-        difficulties.append(difficult)
+        xmin = xmin if xmin >= 0 else 0
+        ymin = ymin if ymin >= 0 else 0
+        xmax = xmax if xmax < image_size['x'] else image_size['x'] - 1
+        ymax = ymax if ymax < image_size['y'] else image_size['y'] - 1
+        assert xmin >= 0 and ymin >= 0 and xmax < image_size['x'] and ymax < image_size['y']
+        
+        box = [xmin, ymin, xmax, ymax]
+        difficulty = 0
+        object = {'boxes': [box], 'labels': [1], 'difficulties': [difficulty]}
 
-    return {'boxes': boxes, 'labels': labels, 'difficulties': difficulties}
+        n_objects += len(object)
+        train_objects.append(object)
+        train_images.append(str(data_path / sp[0]))
 
+    # Save to file
+    with open(data_path / 'TRAIN_images.json', 'w') as j:
+        json.dump(train_images, j)
+    with open(data_path / 'TRAIN_objects.json', 'w') as j:
+        json.dump(train_objects, j)
+    with open(data_path / 'label_map.json', 'w') as j:
+        json.dump(label_map, j)  # save label map too
 
-def create_data_lists(voc07_path, voc12_path, output_folder):
+    print('\nThere are %d training images containing a total of %d objects. Files have been saved to %s.' % (
+        len(train_images), n_objects, os.path.abspath(output_folder)))
+    return
+
+def create_data_lists(data_path, output_folder):
     """
     Create lists of images, the bounding boxes and labels of the objects in these images, and save these to file.
 
@@ -57,70 +85,100 @@ def create_data_lists(voc07_path, voc12_path, output_folder):
     :param voc12_path: path to the 'VOC2012' folder
     :param output_folder: folder where the JSONs must be saved
     """
-    voc07_path = os.path.abspath(voc07_path)
-    voc12_path = os.path.abspath(voc12_path)
 
-    train_images = list()
+    data_path = Path(data_path)
+    with open(data_path / 'labels.txt', 'r') as f:
+        labels = f.read().splitlines()
+
+    half_box_length = 35 #pixels
+    image_size = {'x': 490, 'y': 326}
+
+    # randomly choose 4 imgaes as testing set
+    random.seed()
+    train_labels = list()
+    test_labels = random.sample(labels, 4)
+    for label in labels:
+        if label not in test_labels:
+            train_labels.append(label)
+
+
+    # training set
     train_objects = list()
+    train_images = list()
     n_objects = 0
 
-    # Training data
-    for path in [voc07_path, voc12_path]:
+    for label in train_labels:
+        sp = label.split()
+        x_center = int(float(sp[1])*490)
+        y_center = int(float(sp[2])*326)
+        xmin = x_center - half_box_length
+        ymin = y_center - half_box_length
+        xmax = x_center + half_box_length
+        ymax = y_center + half_box_length
 
-        # Find IDs of images in training data
-        with open(os.path.join(path, 'ImageSets/Main/trainval.txt')) as f:
-            ids = f.read().splitlines()
+        xmin = xmin if xmin >= 0 else 0
+        ymin = ymin if ymin >= 0 else 0
+        xmax = xmax if xmax < image_size['x'] else image_size['x'] - 1
+        ymax = ymax if ymax < image_size['y'] else image_size['y'] - 1
+        assert xmin >= 0 and ymin >= 0 and xmax < image_size['x'] and ymax < image_size['y']
+        
+        box = [xmin, ymin, xmax, ymax]
+        difficulty = 0
+        object = {'boxes': [box], 'labels': [1], 'difficulties': [difficulty]}
 
-        for id in ids:
-            # Parse annotation's XML file
-            objects = parse_annotation(os.path.join(path, 'Annotations', id + '.xml'))
-            if len(objects) == 0:
-                continue
-            n_objects += len(objects)
-            train_objects.append(objects)
-            train_images.append(os.path.join(path, 'JPEGImages', id + '.jpg'))
-
-    assert len(train_objects) == len(train_images)
+        n_objects += len(object)
+        train_objects.append(object)
+        train_images.append(str(data_path / sp[0]))
 
     # Save to file
-    with open(os.path.join(output_folder, 'TRAIN_images.json'), 'w') as j:
+    with open(data_path / 'TRAIN_images.json', 'w') as j:
         json.dump(train_images, j)
-    with open(os.path.join(output_folder, 'TRAIN_objects.json'), 'w') as j:
+    with open(data_path / 'TRAIN_objects.json', 'w') as j:
         json.dump(train_objects, j)
-    with open(os.path.join(output_folder, 'label_map.json'), 'w') as j:
+    with open(data_path / 'label_map.json', 'w') as j:
         json.dump(label_map, j)  # save label map too
 
     print('\nThere are %d training images containing a total of %d objects. Files have been saved to %s.' % (
         len(train_images), n_objects, os.path.abspath(output_folder)))
-
-    # Test data
-    test_images = list()
+    
+    # testing set
     test_objects = list()
+    test_images = list()
     n_objects = 0
 
-    # Find IDs of images in the test data
-    with open(os.path.join(voc07_path, 'ImageSets/Main/test.txt')) as f:
-        ids = f.read().splitlines()
+    for label in test_labels:
+        sp = label.split()
+        x_center = int(float(sp[1])*490)
+        y_center = int(float(sp[2])*326)
+        xmin = x_center - half_box_length
+        ymin = y_center - half_box_length
+        xmax = x_center + half_box_length
+        ymax = y_center + half_box_length
 
-    for id in ids:
-        # Parse annotation's XML file
-        objects = parse_annotation(os.path.join(voc07_path, 'Annotations', id + '.xml'))
-        if len(objects) == 0:
-            continue
-        test_objects.append(objects)
-        n_objects += len(objects)
-        test_images.append(os.path.join(voc07_path, 'JPEGImages', id + '.jpg'))
-
-    assert len(test_objects) == len(test_images)
+        xmin = xmin if xmin >= 0 else 0
+        ymin = ymin if ymin >= 0 else 0
+        xmax = xmax if xmax < image_size['x'] else image_size['x'] - 1
+        ymax = ymax if ymax < image_size['y'] else image_size['y'] - 1
+        assert xmin >= 0 and ymin >= 0 and xmax < image_size['x'] and ymax < image_size['y']
+        
+        box = [xmin, ymin, xmax, ymax]
+        difficulty = 0
+        object = {'boxes': [box], 'labels': [1], 'difficulties': [difficulty]}
+        
+        n_objects += len(object)
+        test_objects.append(object)
+        test_images.append(str(data_path / sp[0]))
 
     # Save to file
-    with open(os.path.join(output_folder, 'TEST_images.json'), 'w') as j:
+    with open(data_path / 'TEST_images.json', 'w') as j:
         json.dump(test_images, j)
-    with open(os.path.join(output_folder, 'TEST_objects.json'), 'w') as j:
+    with open(data_path / 'TEST_objects.json', 'w') as j:
         json.dump(test_objects, j)
 
-    print('\nThere are %d test images containing a total of %d objects. Files have been saved to %s.' % (
+    print('\nThere are %d testing images containing a total of %d objects. Files have been saved to %s.' % (
         len(test_images), n_objects, os.path.abspath(output_folder)))
+
+    return
 
 
 def decimate(tensor, m):

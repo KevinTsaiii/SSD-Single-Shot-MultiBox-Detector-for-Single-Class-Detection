@@ -1,13 +1,14 @@
 from utils import *
-from datasets import PascalVOCDataset
+from datasets import PhoneDataset
 from tqdm import tqdm
 from pprint import PrettyPrinter
+import sys
 
 # Good formatting when printing the APs for each class and mAP
 pp = PrettyPrinter()
 
 # Parameters
-data_folder = './'
+data_folder = sys.argv[1]
 keep_difficult = True  # difficult ground truth objects must always be considered in mAP calculation, because these objects DO exist!
 batch_size = 64
 workers = 4
@@ -23,7 +24,7 @@ model = model.to(device)
 model.eval()
 
 # Load test data
-test_dataset = PascalVOCDataset(data_folder,
+test_dataset = PhoneDataset(data_folder,
                                 split='test',
                                 keep_difficult=keep_difficult)
 test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, shuffle=False,
@@ -59,9 +60,12 @@ def evaluate(test_loader, model):
 
             # Detect objects in SSD output
             det_boxes_batch, det_labels_batch, det_scores_batch = model.detect_objects(predicted_locs, predicted_scores,
-                                                                                       min_score=0.01, max_overlap=0.45,
-                                                                                       top_k=200)
-            # Evaluation MUST be at min_score=0.01, max_overlap=0.45, top_k=200 for fair comparision with the paper's results and other repos
+                                                                                       min_score=0.01, max_overlap=0.5,
+                                                                                       top_k=1)
+
+
+            print(det_boxes_batch)
+            print(boxes)
 
             # Store this batch's results for mAP calculation
             boxes = [b.to(device) for b in boxes]

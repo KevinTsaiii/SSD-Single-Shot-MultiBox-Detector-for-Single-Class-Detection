@@ -2,25 +2,34 @@ import time
 import torch.backends.cudnn as cudnn
 import torch.optim
 import torch.utils.data
+import sys
+import random
+from pathlib import Path
 from model import SSD300, MultiBoxLoss
-from datasets import PascalVOCDataset
+from datasets import PhoneDataset
 from utils import *
 
+
+
 # Data parameters
-data_folder = './'  # folder with data files
+data_folder = sys.argv[1]  # folder with data files
 keep_difficult = True  # use objects considered difficult to detect?
 
 # Model parameters
 # Not too many here since the SSD300 has a very specific structure
+voc_labels = ('phone')
+label_map = {k: v + 1 for v, k in enumerate(voc_labels)}
+label_map['background'] = 0
+
 n_classes = len(label_map)  # number of different types of objects
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Learning parameters
 checkpoint = None  # path to model checkpoint, None if none
 batch_size = 8  # batch size
-iterations = 120000  # number of iterations to train
+iterations = 1000  # number of iterations to train
 workers = 4  # number of workers for loading data in the DataLoader
-print_freq = 200  # print training status every __ batches
+print_freq = 1  # print training status every __ batches
 lr = 1e-3  # learning rate
 decay_lr_at = [80000, 100000]  # decay learning rate after these many iterations
 decay_lr_to = 0.1  # decay learning rate to this fraction of the existing learning rate
@@ -30,8 +39,13 @@ grad_clip = None  # clip if gradients are exploding, which may happen at larger 
 
 cudnn.benchmark = True
 
+    
 
 def main():
+
+    # create JSON data file
+    create_data_lists(sys.argv[1], sys.argv[1])
+
     """
     Training.
     """
@@ -65,7 +79,7 @@ def main():
     criterion = MultiBoxLoss(priors_cxcy=model.priors_cxcy).to(device)
 
     # Custom dataloaders
-    train_dataset = PascalVOCDataset(data_folder,
+    train_dataset = PhoneDataset(data_folder,
                                      split='train',
                                      keep_difficult=keep_difficult)
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True,
@@ -75,8 +89,8 @@ def main():
     # Calculate total number of epochs to train and the epochs to decay learning rate at (i.e. convert iterations to epochs)
     # To convert iterations to epochs, divide iterations by the number of iterations per epoch
     # The paper trains for 120,000 iterations with a batch size of 32, decays after 80,000 and 100,000 iterations
-    epochs = iterations // (len(train_dataset) // 32)
-    decay_lr_at = [it // (len(train_dataset) // 32) for it in decay_lr_at]
+    epochs = iterations // (len(train_dataset) // batch_size)
+    decay_lr_at = [it // (len(train_dataset) // batch_size) for it in decay_lr_at]
 
     # Epochs
     for epoch in range(start_epoch, epochs):
