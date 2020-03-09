@@ -1,7 +1,7 @@
 # SSD-Single-Shot-MultiBox-Detector-for-Single-Class-Detection
 
 ## Task Description
-The customer has only one type of phone he is interested in detecting. Here is an example of a image with a phone on it:
+There is only one type of phone that is interested in detecting. Here is an example of a image with a phone on it:
 
 ![img](/img/find_phone_example.jpg "Example")
 
