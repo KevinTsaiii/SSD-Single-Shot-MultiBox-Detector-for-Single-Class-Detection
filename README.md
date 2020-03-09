@@ -11,9 +11,14 @@ Your “phone detector” has to find normalized coordinates of the center of th
 **img_path , x (coordinate of the phone), y (coordinate of the phone)**
 
 Here is an example of the first 3 lines from labels.txt:
-**51.jpg 0.2388 0.6012
-95.jpg 0.2551 0.3129
-84.jpg 0.7122 0.7117**
+
+**51.jpg 0.2388 0.6012**
+
+**95.jpg 0.2551 0.3129**
+
+**84.jpg 0.7122 0.7117**
+
+
 
 A phone is considered to be detected correctly on a test image if the predicted output is within a radius of 0.05 (normalized distance) centered on the phone.
 
@@ -70,4 +75,10 @@ It took less than 7 minutes to train the model on training set and the results a
 ![img](./img/demo2.jpeg "Demo 2")
 
 ![img](./img/demo3.jpeg "Demo 3")
+
+## Reference
+
+[1] arXiv:1512.02325 [cs.CV] https://arxiv.org/abs/1512.02325
+
+[2] https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Object-Detection#evaluation
 
