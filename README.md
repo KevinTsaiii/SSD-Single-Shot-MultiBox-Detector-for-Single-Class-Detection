@@ -1,5 +1,9 @@
 # SSD-Single-Shot-MultiBox-Detector-for-Single-Class-Detection
-SSD: Single Shot MultiBox Detector for Single Class Detection
+
+## Task Description
+The customer has only one type of phone he is interested in detecting. Here is an example of a image with a phone on it:
+
+![img](/img/find_phone_example.jpg "Example")
 
 Please put those scripts under the same folder. Those two scripts advised by the tasks are:
 1) train_phone_finder.py takes a single command line argument which is a path to a folder with labeled images and labels.txt that has been attached to this description. This script trains the model and generates a checkpoint file checkpoint_ssd300.pth.tar, which contains all the parameters of the model for predicting testing data. Here is what a terminal command would look like:
