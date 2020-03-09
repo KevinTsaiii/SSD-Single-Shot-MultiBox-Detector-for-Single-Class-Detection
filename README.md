@@ -5,6 +5,17 @@ There is only one type of phone that is interested in detecting. Here is an exam
 
 ![img](/img/find_phone_example.jpg "Example")
 
+Consider a normalized XY-coordinate system for an image. Left-top corner of the image is defined as (x, y) = (0, 0), 
+left-bottom as (x, y) = (0, 1), right-top as (x, y) = (1, 0), and finally right-bottom corner as (x, y) = (1, 1). 
+Your “phone detector” has to find normalized coordinates of the center of the phone. In the example above, the coordinates
+ of the phone are approximately (x, y) = (0.26, 0.80). Every image contains a phone. The customer has prepared a small 
+ labeled dataset for you. A dataset consists of approximately 100 jpeg images of the floor from the factory building 
+ with a phone on it. There is a file named labels.txt that contains normalized coordinates of a phone for each picture.
+Each line of the labels.txt is composed of img_path , x , y separated by spaces:
+
+
+img_path , x (coordinate of the phone), y (coordinate of the phone)
+
 Please put those scripts under the same folder. Those two scripts advised by the tasks are:
 1) train_phone_finder.py takes a single command line argument which is a path to a folder with labeled images and labels.txt that has been attached to this description. This script trains the model and generates a checkpoint file checkpoint_ssd300.pth.tar, which contains all the parameters of the model for predicting testing data. Here is what a terminal command would look like:
 > python train_phone_finder.py ./find_phone
